@@ -17,30 +17,82 @@ var connector = new builder.ChatConnector({
     appPassword: process.env.MICROSOFT_APP_PASSWORD
 });
 var bot = new builder.UniversalBot(connector);
+var intents = new builder.IntentDialog();
 server.post('/api/messages', connector.listen());
 
 //=========================================================
 // Bots Dialogs
 //=========================================================
-bot.dialog('/', [
+bot.dialog('/', intents);
+
+// FUNCTIONS
+bot.dialog('/template', [
+    function (session) {
+        // do stuff
+    },
+    function (session, results) {
+        // do other stuff
+        session.endDialog();
+    }
+]);
+
+bot.dialog('/uploadcv', [
+    // Dosent seem to want to work
+    function (session) {;
+        builder.Prompts.attachment(session, 'Please upload your cv');
+    },
+    function (session, results) {
+        // do other stuff
+        session.endDialog();
+    }
+]);
+
+bot.dialog('/getname', [
+    function (session) {
+        builder.Prompts.choice(session, 'Please choose your name', 'Mike|Steve|Joe')
+    },
+    function (session, results) {
+        session.dialogData.name = results.response.entity;
+        builder.Prompts.confirm(session, 'Your name will be set to ' + session.dialogData.name + '. Are you sure?');
+    },
+    function (session, results) {
+        if(results.response){
+            session.privateConversationData.name = session.dialogData.name;
+        }
+        session.endDialog();
+    }
+]);
+
+// MAIN CONTROL
+intents.onDefault([
     function (session, args, next) {
         if (!session.privateConversationData.name){
-            session.beginDialog('/profile');
+            session.beginDialog('/getname');
         } else {
             next();
         }
     },
     function (session, results) {
-        session.send('Hello %s!', session.privateConversationData.name);
+        session.send('Hello %s! What can we do for you today?', session.privateConversationData.name);
     }
 ]);
 
-bot.dialog('/profile', [
-    function (session) {
-        builder.Prompts.text(session, 'Hi! What is your name?');
+intents.matches(/^change name/i, [
+    function (session, args, next) {
+        session.beginDialog('/getname');
     },
     function (session, results) {
-        session.privateConversationData.name = results.response;
-        session.endDialog();
+        session.send('Hello %s!', session.privateConversationData.name);
+        session.endDialog
     }
 ]);
+
+intents.matches(/^upload cv/i, [
+    function (session, args, next) {
+        session.beginDialog('/uploadcv');
+    },
+    function (session, results) {
+        session.endDialog
+    }
+]);
+
