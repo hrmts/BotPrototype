@@ -58,8 +58,10 @@ bot.dialog('/getname', [
     function (session, results) {
         if(results.response){
             session.privateConversationData.name = session.dialogData.name;
+            session.endDialog();
+        } else {
+            session.beginDialog('/getname');
         }
-        session.endDialog();
     }
 ]);
 
@@ -83,7 +85,7 @@ intents.matches(/^change name/i, [
     },
     function (session, results) {
         session.send('Hello %s!', session.privateConversationData.name);
-        session.endDialog
+        session.endDialog;
     }
 ]);
 
@@ -92,7 +94,7 @@ intents.matches(/^upload cv/i, [
         session.beginDialog('/uploadcv');
     },
     function (session, results) {
-        session.endDialog
+        session.endDialog;
     }
 ]);
 
