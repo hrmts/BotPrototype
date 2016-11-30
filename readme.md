@@ -1,18 +1,18 @@
-# Bot prototyping
+# Introduction
 
-Here i test different chatbots and see if they are ready for
-for practical use.
+Here i test different chatbots in order to teach myself to create
+them and see if any of them have any practical use.
 
 To test the bots go into the bot's folder and run node on the main
 javascript app.
 The bot will then be hosted on localhost:3978 and you can use the
-[Microsoft BotFramework Emulator](https://github.com/Microsoft/BotFramework-Emulator)
+[Microsoft BotFramework Emulator](https://github.com/Microsoft/BotFramework-Emulator) to interact with it.
 
 # Different Bots
 ## Generell prototype
 
-I use this prototype to test diffrent features of the MS Bot framework
-and relevant technologies.
+I use this prototype to test different features of the MS Bot
+framework and relevant technologies.
 
 Currently testing: Prompts, LUIS,
 
