@@ -1,5 +1,6 @@
 var restify = require('restify');
 var builder = require('botbuilder');
+var mongodb = require('mongodb');
 
 //=========================================================
 // Bot Setup
@@ -51,31 +52,46 @@ bot.dialog('/template', [
     }
 ]);
 
-bot.dialog('/getname', [
-    function (session) {
-        builder.Prompts.text(session, 'Hi! What is your name?');
-    },
-    function (session, results) {
-        session.privateConversationData.name = results.response;
-        session.endDialog();
-    }
-]);
+
 
 // functions    --- Apply to job
+var mongoClient = mongodb.MongoClient;
+var url = 'mongodb://localhost:27017/hr-managerDB';
+var promiseCount = 0;
 
-// This is temporary data, replace with a database query.  
-var availableJobs  = {
-    IT: {'Programmer': 0, 'Help desk support': 0},
-    Sports: {'Baseball player': 0, 'Pro gamer': 0},
-};
+var availableJobs = new Promise( function( resolve, reject ) {
+    mongoClient.connect(url, function(err, db){
+        if(err){
+            console.log('Error connecting to database', err);
+        } else{
+            var jobCollection = db.collection('availableJobs');
+            jobCollection.find().toArray(function(err, result){
+                if(err){
+                    console.log('Error', err);
+                } else{
+                    delete result[0]._id;
+                    resolve(result);
+                }
+            });
+
+        }
+        db.close();
+    });
+});
+
 
 bot.dialog('/getjob', [
     function (session) {
-        builder.Prompts.choice(session, 'What section do you want to apply to?', availableJobs);
+        availableJobs.then( function(val){
+            builder.Prompts.choice(session, 'What section do you want to apply to?', val[0]);
+        });
     },
     function (session, results) {
         var section = results.response.entity
-        builder.Prompts.choice(session, 'What section do you want to apply to?', availableJobs[section]);
+        session.privateConversationData.jobSection = section;
+        availableJobs.then( function(val){
+            builder.Prompts.choice(session, 'What section do you want to apply to?', val[0][section]);
+        });
     },
     function (session, results) {
         session.privateConversationData.jobtitle = results.response.entity;
@@ -89,8 +105,8 @@ bot.dialog('/getemail', [
     },
     function (session, results) {
         if (!verifyEmail(results.response)){
-            session.send('Please provide an valid e-mail address!')
-            session.beginDialog('/getemail')
+            session.send('Please provide an valid e-mail address!');
+            session.beginDialog('/getemail');
         } else {
             session.dialogData.email = results.response;
             builder.Prompts.confirm(session, 
@@ -108,6 +124,35 @@ bot.dialog('/getemail', [
     },
 ]);
 
+bot.dialog('/getfName', [
+    function (session, results) {
+        builder.Prompts.text(session, 'What is your first name?');
+    },
+    function (session, results) {
+        session.privateConversationData.fName = capitalizeFirst(results.response);
+        session.endDialog();
+    },
+]);
+
+bot.dialog('/getlName', [
+    function (session, results) {
+        builder.Prompts.text(session, 'Hi ' + session.privateConversationData.fName + '. What is your last name?');
+    },
+    function (session, results) {
+        session.privateConversationData.lName = capitalizeFirst(results.response);
+        session.endDialog();
+    },
+]);
+
+bot.dialog('/getaddress', [
+    function (session, results) {
+        builder.Prompts.text(session, 'What is your address?');
+    },
+    function (session, results) {
+        session.privateConversationData.lName = capitalizeFirst(results.response);
+        session.endDialog();
+    },
+]);
 
 // Main control --- Apply to job
 bot.dialog('/applytojob', [
@@ -119,14 +164,12 @@ bot.dialog('/applytojob', [
         session.beginDialog('/getemail');
     },
     function (session, results) {
-        builder.Prompts.text(session, 'What is your first name?');
+        session.beginDialog('/getfName');
     },
     function (session, results) {
-        session.privateConversationData.fName = capitalizeFirst(results.response);
-        builder.Prompts.text(session, 'Hi ' + session.privateConversationData.fName + '. What is your last name?');
+        session.beginDialog('/getlName');
     },
     function (session, results) {
-        session.privateConversationData.lName = capitalizeFirst(results.response);
         session.send('Thank you ' + session.privateConversationData.fName + ' ' + session.privateConversationData.lName + '!')
         builder.Prompts.text(session, 'What is your street address?');
     },
@@ -140,14 +183,16 @@ bot.dialog('/applytojob', [
         session.send('Address : ' + session.privateConversationData.address);
         builder.Prompts.choice(session,
                                'Is there anything you would like to change?',
-                               ['E-Mail', 'First name', 'Last name',
-                                'Address',
+                               ['Change email', 'Change first name',
+                               'Change last name', 'Change address',
                                 'No, confirm & send application.'])
         session.endDialog();
-    }
+    },
     function (session, results) {
         var answer = results.response.entity;
-
+        if(answer == 'No, confirm & send application'){
+            session.send('Thank you! Your application has been sent.');
+        }
         session.endDialog();
     }
 ]);
