@@ -26,17 +26,19 @@ server.post('/api/messages', connector.listen());
 bot.dialog('/', intents);
 
 // FUNCTIONS
+function capitalizeFirst(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+}
 
 function verifyEmail(email){
     var status = false;     
-    var emailRegEx = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i;
+    var emailRegEx = /^[\w\d\W\D]+@[\w\d\W\D]+\.[\w\d\W\D]/i;
 
-    if (email.value.search(emailRegEx) == 1) {
+    if (emailRegEx.test(email) == 1) {
         status = true;
     }
 
     return status;
-
 }
 
 bot.dialog('/template', [
@@ -60,19 +62,46 @@ bot.dialog('/getname', [
 ]);
 
 // functions    --- Apply to job
+
+// This is temporary data, replace with a database query.  
+var availableJobs  = {
+    IT: {'Programmer': 0, 'Help desk support': 0},
+    Sports: {'Baseball player': 0, 'Pro gamer': 0},
+};
+
+bot.dialog('/getjob', [
+    function (session) {
+        builder.Prompts.choice(session, 'What section do you want to apply to?', availableJobs);
+    },
+    function (session, results) {
+        var section = results.response.entity
+        builder.Prompts.choice(session, 'What section do you want to apply to?', availableJobs[section]);
+    },
+    function (session, results) {
+        session.privateConversationData.jobtitle = results.response.entity;
+        session.endDialog();
+    }
+]);
+
 bot.dialog('/getemail', [
     function (session) {
-        builder.Prompts.text(session, 'What is your e-mail adress?');
+        builder.Prompts.text(session, 'What is your e-mail address?');
     },
     function (session, results) {
-        session.dialogData.email = results.response.entity;
-        builder.Prompts.confirm(session, 
-                                'Your email will be set to ' +
-                                results.response.entity + ' Are you sure?');
+        if (!verifyEmail(results.response)){
+            session.send('Please provide an valid e-mail address!')
+            session.beginDialog('/getemail')
+        } else {
+            session.dialogData.email = results.response;
+            builder.Prompts.confirm(session, 
+                                    'Your email will be set to ' +
+                                    results.response + ' Are you sure?');
+        }
     },
     function (session, results) {
-        if (results.response.entity){
+        if (results.response){
             session.privateConversationData.email = session.dialogData.email;
+            session.endDialog();
         } else {
             session.beginDialog('/getemail');
         }
@@ -83,66 +112,58 @@ bot.dialog('/getemail', [
 // Main control --- Apply to job
 bot.dialog('/applytojob', [
     function (session) {
-        builder.Prompts.choice(session, 
-                              'What Job do you want to apply to?',
-                              'IT|NOTIT|ITIT|OTHERIT');
+        session.beginDialog('/getjob');
     },
     function (session, results) {
-        session.dialogData.jobtitle = results.response.entity;
-        session.send('Ok, you are applying for %s at CoolCompanyInc!', session.dialogData.jobtitle)
-        builder.Prompts.text(session, 'What is your e-mail adress?')
+        session.send('You are applying for ' + session.privateConversationData.jobtitle);
+        session.beginDialog('/getemail');
     },
     function (session, results) {
-        session.dialogData.email = results.response.entity;
-        builder.Prompts.confirm(session, 
-                                'Your email will be set to ' +
-                                results.response.entity + ' Are you sure?');
+        builder.Prompts.text(session, 'What is your first name?');
     },
     function (session, results) {
-        if (results.response.entity){
-            session.privateConversationData.email = session.dialogData.email;
-        } else {
-            back();
-        }
+        session.privateConversationData.fName = capitalizeFirst(results.response);
+        builder.Prompts.text(session, 'Hi ' + session.privateConversationData.fName + '. What is your last name?');
     },
     function (session, results) {
-        builder.Prompts.text(session, 'What is your first name?')
+        session.privateConversationData.lName = capitalizeFirst(results.response);
+        session.send('Thank you ' + session.privateConversationData.fName + ' ' + session.privateConversationData.lName + '!')
+        builder.Prompts.text(session, 'What is your street address?');
     },
     function (session, results) {
-        endDialog();
+        session.privateConversationData.address = results.response;
+
+        session.send('Here is the data i recieved from you!');
+        session.send('E-Mail : ' + session.privateConversationData.email);
+        session.send('First Name : ' + session.privateConversationData.fName);
+        session.send('Last Name : ' + session.privateConversationData.lName);
+        session.send('Address : ' + session.privateConversationData.address);
+        builder.Prompts.choice(session,
+                               'Is there anything you would like to change?',
+                               ['E-Mail', 'First name', 'Last name',
+                                'Address',
+                                'No, confirm & send application.'])
+        session.endDialog();
+    }
+    function (session, results) {
+        var answer = results.response.entity;
+
+        session.endDialog();
     }
 ]);
 
 // MAIN CONTROL
 intents.onDefault([
-    function (session, args, next) {
-        if (!session.privateConversationData.name){
-            session.beginDialog('/getname');
-        } else {
-            next();
+    function (session) {
+        session.send('Hello! I am HR-Manager Bot.')
+        builder.Prompts.choice(session,
+                               'What can we do for you today?',
+                               ['Apply for a job']);
+    },
+    function (session, results) {
+        var answer = results.response.entity;
+        if (answer == 'Apply for a job'){
+            session.beginDialog('/applytojob');
         }
-    },
-    function (session, results) {
-        session.send('Hello %s! What can we do for you today?', session.privateConversationData.name);
     }
 ]);
-
-intents.matches(/^change name/i, [
-    function (session, args, next) {
-        session.beginDialog('/getname');
-    },
-    function (session, results) {
-        session.send('Hello %s!', session.privateConversationData.name);
-        session.endDialog;
-    }
-]);
-
-intents.matches(/^apply/i, [
-    function (session, args, next) {
-        session.beginDialog('/applytojob');
-    },
-    function (session, results) {
-        session.endDialog;
-    }
-]);
-
