@@ -186,11 +186,11 @@ bot.dialog('/applytojob', [
                                ['Change email', 'Change first name',
                                'Change last name', 'Change address',
                                 'No, confirm & send application.'])
-        session.endDialog();
     },
     function (session, results) {
         var answer = results.response.entity;
-        if(answer == 'No, confirm & send application'){
+        console.log(asnwer)
+        if(answer == 'No, confirm & send application.'){
             session.send('Thank you! Your application has been sent.');
         }
         session.endDialog();
